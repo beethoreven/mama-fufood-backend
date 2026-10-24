@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+.localdb/
+.DS_Store
+
+# 本機開發工具的個人設定(每台機器不一樣,不該共用)。
+.claude/settings.local.json

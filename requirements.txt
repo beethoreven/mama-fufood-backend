@@ -1,0 +1,15 @@
+# 版本一律釘在當下最新的正式版(2026-10-23 查 PyPI)。新增或升級套件時先試最新版,
+# 真的不相容才往下降,並在這裡寫下為什麼。Python 的版本在 .python-version(3.15.1)。
+Flask==3.1.3
+Werkzeug==3.1.9
+Flask-Cors==6.0.5
+gunicorn==26.2.0
+psycopg[binary]==3.3.6
+python-dotenv==1.2.4
+google-auth==2.62.0
+# google-auth 每次驗證都會重抓 Google 的公開金鑰;CacheControl 讓它遵守 Google 回的
+# Cache-Control 標頭(做法沿用 group-judge,理由見 auth_utils/google_auth.py)。
+cachecontrol==0.14.4
+requests==2.34.2
+# 算「使用者看到的字數」(一個 emoji 算一個字)要用 \X(字素叢集),標準庫的 re 沒有。
+regex==2026.9.29
