@@ -70,9 +70,9 @@ Render 與 Neon 都開在新加坡(ap-southeast-1)。這不是微調而是前提
 
 App 每天開啟時打一次 `/api/v1/check`。如果每次都查資料庫,Neon 就會一直被叫醒:Neon 免費方案每月 100 CU-hours(Neon 的方案頁另有「50」的寫法,兩處不一致),閒置 5 分鐘才會暫停。做法是:
 
-- **公用資料放在記憶體快取**(`services/public_cache.py`)。資料庫才是唯一的來源,記憶體只是副本:啟動時在背景載入,失敗就每 30 秒重試;後台按下「發布」後重新載入。
+- **公用資料放在記憶體快取**(`services/public_cache.py`)。資料庫才是唯一的來源,記憶體只是副本:收到第一個請求時(保活的 `/health` 也算)在背景開始載入,失敗就每 30 秒重試;**刻意不在 import 時開執行緒**:那個版本部署到 Render 後,背景載入一行記錄都沒有、資料庫一次都沒連上,`/ready` 一直是 503(本機跑不出這個問題);後台按下「發布」後重新載入。
 - **每人每天 10 次的計數也只放記憶體**(`services/quota.py`),依 Google 帳號的 `sub` 計,台北時間午夜清空。重啟後計數歸零,代價只是當天多給幾次,可以接受。
-- **不記 IP、不存裝置資訊**:gunicorn 刻意不開 access log;每日檢查只收 Google 的登入憑證、App 版本、平台(android),以及 App 手上各資料集的版本與它支援的格式版本。
+- **不記 IP、不存裝置資訊**:gunicorn 的 access log 在程式裡直接關掉(`gunicorn.access` 這個 logger):啟動指令沒開,Render 上卻照樣印出每個請求,所以不依賴啟動參數;每日檢查只收 Google 的登入憑證、App 版本、平台(android),以及 App 手上各資料集的版本與它支援的格式版本。
 
 `/health` 與 `/ready` 也都不碰資料庫:
 
@@ -243,7 +243,7 @@ cp .env.example .env
 TEST_DATABASE_URL=postgresql://postgres@localhost:5433/mff_test .venv/bin/python -m pytest
 ```
 
-目前 84 項。沒有設定 `TEST_DATABASE_URL` 時,需要資料庫的測試會跳過,其餘照跑。**測試會清空 `TEST_DATABASE_URL` 指向的資料庫,絕對不要指向正式的 Neon。**
+目前 87 項。沒有設定 `TEST_DATABASE_URL` 時,需要資料庫的測試會跳過,其餘照跑。**測試會清空 `TEST_DATABASE_URL` 指向的資料庫,絕對不要指向正式的 Neon。**
 
 ---
 
@@ -361,9 +361,9 @@ The diagnostics attached to feedback (log files, logcat, crash summaries) are ma
 
 The app calls `/api/v1/check` once a day when it opens. If every call queried the database, Neon would keep being woken up: Neon's free plan gives 100 CU-hours per month (Neon's plans page also says "50" elsewhere — the two disagree), and it only suspends after 5 minutes idle. Instead:
 
-- **Public data lives in an in-memory cache** (`services/public_cache.py`). The database is the only source of truth; memory is just a copy: it loads in the background at startup, retries every 30 seconds on failure, and reloads after "Publish" is pressed in the admin console.
+- **Public data lives in an in-memory cache** (`services/public_cache.py`). The database is the only source of truth; memory is just a copy: it starts loading in the background on the first request (the keep-alive `/health` counts), retries every 30 seconds on failure; **it deliberately doesn't start a thread at import time**: that version, deployed to Render, never logged a single line from the background load and never reached the database, leaving `/ready` at 503 (the problem doesn't reproduce locally); it reloads after "Publish" is pressed in the admin console.
 - **The 10-per-day count per person also lives only in memory** (`services/quota.py`), keyed by the Google account's `sub` and reset at midnight Taipei time. A restart resets the counts, which only means a few extra checks that day — acceptable.
-- **No IPs, no device information stored**: gunicorn's access log is deliberately off; the daily check only receives the Google sign-in credential, the app version, the platform (android), and the version of each dataset the app holds plus the format versions it supports.
+- **No IPs, no device information stored**: gunicorn's access log is switched off in code (the `gunicorn.access` logger): the start command doesn't enable it, yet Render printed every request anyway, so this doesn't rely on start-up arguments; the daily check only receives the Google sign-in credential, the app version, the platform (android), and the version of each dataset the app holds plus the format versions it supports.
 
 `/health` and `/ready` don't touch the database either:
 
@@ -534,7 +534,7 @@ Press `Control + C` to stop.
 TEST_DATABASE_URL=postgresql://postgres@localhost:5433/mff_test .venv/bin/python -m pytest
 ```
 
-84 tests at the moment. Without `TEST_DATABASE_URL`, the tests that need a database are skipped and the rest still run. **The tests wipe the database `TEST_DATABASE_URL` points at — never point it at the production Neon database.**
+87 tests at the moment. Without `TEST_DATABASE_URL`, the tests that need a database are skipped and the rest still run. **The tests wipe the database `TEST_DATABASE_URL` points at — never point it at the production Neon database.**
 
 ---
 

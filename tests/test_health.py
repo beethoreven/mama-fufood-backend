@@ -47,3 +47,27 @@ def test_cors_only_for_the_admin_site(client):
     resp = client.options("/api/admin/overview", headers={
         "Origin": "https://evil.example", "Access-Control-Request-Method": "GET"})
     assert "Access-Control-Allow-Origin" not in resp.headers
+
+
+def test_loader_starts_on_first_request_not_at_import(monkeypatch):
+    """背景載入要等第一個請求才開始,import 或建立 app 時不能開執行緒。"""
+    import app as app_module
+    from services import public_cache
+
+    calls = []
+    monkeypatch.setattr(public_cache, "start_background_loader", lambda: calls.append(1))
+    flask_app = app_module.create_app(start_loader=True)
+    assert calls == []
+    flask_app.test_client().get("/health")
+    assert calls == [1]
+
+
+def test_gunicorn_access_log_is_off(app):
+    """access log 會記下 IP,不管啟動參數怎麼設都要關掉。"""
+    import logging
+
+    assert logging.getLogger("gunicorn.access").disabled is True
+
+
+def test_ready_says_whether_the_database_is_configured(client):
+    assert "database_configured" in client.get("/ready").get_json()

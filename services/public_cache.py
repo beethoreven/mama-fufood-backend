@@ -4,7 +4,7 @@
 
 - **資料庫是唯一的來源,記憶體只是副本。**快取只會整份「從資料庫重新載入」,
   沒有任何地方直接改快取的內容;後台發布時先寫資料庫,成功後才呼叫 reload()。
-- **重啟後自動重建:**啟動時載入;失敗(例如資料庫還在喚醒)就每 30 秒重試,
+- **重啟後自動重建:**收到第一個請求時開始在背景載入(不在 import 時開執行緒,原因見 app.py);失敗(例如資料庫還在喚醒)就每 30 秒重試,
   收到檢查請求時也會再試一次(最快 5 秒一次,避免一大串請求同時去叫醒資料庫)。
 - **還沒載入完成時:**檢查 API 回「暫時無法檢查」,不扣使用者的每日額度。
 """
@@ -98,6 +98,7 @@ def start_background_loader() -> None:
     if _loader_started or not config.DATABASE_URL:
         return
     _loader_started = True
+    log.info("開始在背景載入公用資料快取")
     threading.Thread(target=_retry_until_loaded, name="public-cache-loader", daemon=True).start()
 
 

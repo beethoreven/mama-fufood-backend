@@ -6,8 +6,14 @@
 ★ 一定要單一 worker:每人每天的次數放在記憶體裡,多個 worker 會各算各的
   (SPEC 第 3 節第 3 項)。
 
-★ 不開 gunicorn 的 access log:那會把每個請求的 IP 寫進日誌,而我們承諾不保存 IP
-  (隱私權政策第二條)。
+★ 不留 gunicorn 的 access log:那會把每個請求的 IP 寫進日誌,而我們承諾不保存 IP
+  (隱私權政策第二條)。啟動指令沒開,但 Render 上實際會印出來(平台另外帶了參數),
+  所以在程式裡直接關掉 gunicorn.access 這個 logger,不依賴啟動參數。
+
+★ 載入階段不開執行緒、不對外連線:公用資料快取的背景載入,等第一個請求進來
+  (保活的 /health 也算)才在 worker 裡開始。在 import 時就開的版本,部署到 Render
+  後背景載入一行記錄都沒有、資料庫一次都沒連上,/ready 一直是 503;同一個平台上
+  另一個專案也遇過「import 時開的執行緒讓 worker 的對外連線全部卡住」。
 """
 
 from __future__ import annotations
@@ -32,6 +38,9 @@ MAX_CONTENT_LENGTH = 9 * 1024 * 1024
 
 def create_app(start_loader: bool = True) -> Flask:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.getLogger("gunicorn.access").disabled = True
+    if not config.DATABASE_URL:
+        logging.getLogger(__name__).warning("沒有設定 DATABASE_URL:公用資料無法載入,/ready 會一直是 503")
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
     app.json.ensure_ascii = False
@@ -63,6 +72,7 @@ def create_app(start_loader: bool = True) -> Flask:
         return jsonify({
             "ok": cache["loaded"],
             "cache": cache,
+            "database_configured": bool(config.DATABASE_URL),
             "database_last_ok": datetime.fromtimestamp(last, timezone.utc).isoformat() if last else None,
             "commit": config.COMMIT,
         }), 200 if cache["loaded"] else 503
@@ -91,7 +101,11 @@ def create_app(start_loader: bool = True) -> Flask:
         return jsonify({"error": "伺服器發生錯誤", "code": "server_error"}), 500
 
     if start_loader:
-        public_cache.start_background_loader()
+        @app.before_request
+        def _start_cache_loader():
+            # 只有第一次真的開執行緒,之後每個請求只看一個旗標。
+            public_cache.start_background_loader()
+
     return app
 
 
