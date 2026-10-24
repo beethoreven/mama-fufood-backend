@@ -30,7 +30,7 @@ def list_all(cur) -> list[dict]:
     rows = [{"email": e, "note": n, "created_at": c.isoformat(), "created_by": b, "fixed": False}
             for e, n, c, b in cur.fetchall()]
     if config.FIRST_ADMIN_EMAIL and all(r["email"] != config.FIRST_ADMIN_EMAIL for r in rows):
-        rows.insert(0, {"email": config.FIRST_ADMIN_EMAIL, "note": "第一位管理員(環境變數)",
+        rows.insert(0, {"email": config.FIRST_ADMIN_EMAIL, "note": "第一位管理員（環境變數）",
                         "created_at": None, "created_by": "", "fixed": True})
     return rows
 

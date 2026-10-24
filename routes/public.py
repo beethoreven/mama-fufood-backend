@@ -119,10 +119,10 @@ def check():
     snap = public_cache.ensure_loaded()
     if snap is None:
         # 還沒載入完成:回「暫時無法檢查」,不扣額度,App 依重試規則晚點再試。
-        return _error(503, "not_ready", "暫時無法檢查,請稍後再試")
+        return _error(503, "not_ready", "暫時無法檢查，請稍後再試")
     if not check_quota.try_take(claims["sub"]):
         rejections.note("超過每日檢查次數")
-        return _error(429, "daily_limit", "今天的檢查次數已經用完,明天會自動恢復")
+        return _error(429, "daily_limit", "今天的檢查次數已經用完，明天會自動恢復")
 
     cfg = snap["app_config"]
     minimum = parse_version(cfg["min_app_version"]) or (0, 0, 0)
@@ -238,7 +238,7 @@ def submit_feedback():
 
     if not feedback_attempts.try_take(claims["sub"]):
         rejections.note("意見回饋嘗試過多")
-        return _error(429, "daily_limit", "今天的意見回饋已達上限,明天會自動恢復")
+        return _error(429, "daily_limit", "今天的意見回饋已達上限，明天會自動恢復")
     email = claims["email"]
     dropped = False
     with pool.connection() as conn:
@@ -251,7 +251,7 @@ def submit_feedback():
                     return jsonify({"id": row["id"], "status": "duplicate"}), 200
                 return _error(409, "id_conflict", "意見回饋編號重複")
             if feedback_db.count_today(cur, email) >= config.FEEDBACK_DAILY_LIMIT:
-                return _error(429, "daily_limit", "今天的意見回饋已達上限,明天會自動恢復")
+                return _error(429, "daily_limit", "今天的意見回饋已達上限，明天會自動恢復")
             feedback_db.purge_old(cur)
             if row["attachment"] is not None and feedback_db.over_limit(cur):
                 # 資料表滿了:照樣收下意見回饋,只是不收記錄檔(後台會顯示警告)。
@@ -301,7 +301,7 @@ def convert():
         return _error(exc.status, exc.code, str(exc))
     gzipped = payload.is_gzipped(request)
     if not _convert_slot.acquire(timeout=30):
-        return _error(503, "busy", "轉換服務忙碌中,請稍後再試")
+        return _error(503, "busy", "轉換服務忙碌中，請稍後再試")
     try:
         try:
             data = payload.decode_json(raw, gzipped, CONVERT_MAX_DECOMPRESSED)
@@ -311,21 +311,21 @@ def convert():
         if isinstance(version, bool) or not isinstance(version, int):
             return _error(400, "bad_request", "內容格式不對")
         if version == export_formats.CURRENT:
-            return _error(409, "already_current", "這個檔案已經是最新格式,不需要轉換")
+            return _error(409, "already_current", "這個檔案已經是最新格式，不需要轉換")
         if version not in export_formats.DEFINITIONS or version > export_formats.CURRENT:
             return _error(400, "unsupported_format", "不支援這個格式版本")
         errors = export_formats.validate(data, version)
         if errors:
             return _error(422, "invalid_file", "檔案內容不符合格式", errors=errors[:20])
         if not convert_quota.try_take(claims["sub"]):
-            return _error(429, "daily_limit", "今天的轉換次數已經用完,明天會自動恢復")
+            return _error(429, "daily_limit", "今天的轉換次數已經用完，明天會自動恢復")
         try:
             converted, missing = export_formats.convert(data)
             if not missing and export_formats.validate(converted):
                 raise ValueError("轉換結果沒有通過檢查")
         except Exception:  # noqa: BLE001 - 轉換程式的錯;不記內容,把額度還回去
             convert_quota.give_back(claims["sub"])
-            return _error(500, "convert_failed", "轉換失敗,請把這個問題回報給我們")
+            return _error(500, "convert_failed", "轉換失敗，請把這個問題回報給我們")
         return _gzip_json({"format_version": export_formats.CURRENT, "data": converted, "missing": missing})
     finally:
         _convert_slot.release()

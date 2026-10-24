@@ -50,7 +50,7 @@ class _Checker:
 
     def fail(self, path: str, message: str) -> None:
         if len(self.errors) < _MAX_ERRORS:
-            self.errors.append(f"{path or '(最上層)'}:{message}")
+            self.errors.append(f"{path or '（最上層）'}：{message}")
 
     def check(self, spec: dict, value, path: str, key: str) -> None:
         if value is None:
@@ -147,7 +147,7 @@ class _Checker:
         minutes = int(m.group(2)) * 60 + int(m.group(3))
         minutes = -minutes if m.group(1) == "-" else minutes
         if not -12 * 60 <= minutes <= 14 * 60 or int(m.group(3)) % 15:
-            self.fail(path, "時區超出範圍(-12:00~+14:00)")
+            self.fail(path, "時區超出範圍（-12:00~+14:00）")
 
     def _amount(self, spec, value, path):
         if isinstance(value, bool) or not isinstance(value, (int, float)):

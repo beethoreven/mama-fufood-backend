@@ -31,7 +31,7 @@ def update(cur, data: dict, by: str) -> None:
     fields: dict = {}
     if "min_app_version" in data:
         if parse_version(data["min_app_version"]) is None:
-            raise ConfigError("最低可用版本要寫成 x.y.z,例如 1.2.0")
+            raise ConfigError("最低可用版本要寫成 x.y.z，例如 1.2.0")
         fields["min_app_version"] = data["min_app_version"]
     for key in ("force_reason", "update_url", "dataset_notice"):
         if key in data:

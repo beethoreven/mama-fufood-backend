@@ -243,7 +243,7 @@ cp .env.example .env
 TEST_DATABASE_URL=postgresql://postgres@localhost:5433/mff_test .venv/bin/python -m pytest
 ```
 
-目前 87 項。沒有設定 `TEST_DATABASE_URL` 時,需要資料庫的測試會跳過,其餘照跑。**測試會清空 `TEST_DATABASE_URL` 指向的資料庫,絕對不要指向正式的 Neon。**
+目前 86 項。沒有設定 `TEST_DATABASE_URL` 時,需要資料庫的測試會跳過,其餘照跑。**測試會清空 `TEST_DATABASE_URL` 指向的資料庫,絕對不要指向正式的 Neon。**
 
 ---
 
@@ -534,7 +534,7 @@ Press `Control + C` to stop.
 TEST_DATABASE_URL=postgresql://postgres@localhost:5433/mff_test .venv/bin/python -m pytest
 ```
 
-87 tests at the moment. Without `TEST_DATABASE_URL`, the tests that need a database are skipped and the rest still run. **The tests wipe the database `TEST_DATABASE_URL` points at — never point it at the production Neon database.**
+86 tests at the moment. Without `TEST_DATABASE_URL`, the tests that need a database are skipped and the rest still run. **The tests wipe the database `TEST_DATABASE_URL` points at — never point it at the production Neon database.**
 
 ---
 

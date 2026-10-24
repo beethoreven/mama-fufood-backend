@@ -64,7 +64,7 @@ def login():
         return _error(401, "invalid_token", "Google 憑證無效")
     if not login_attempts.try_take(claims["sub"]):
         rejections.note("後台登入嘗試過多")
-        return _error(429, "too_many", "登入嘗試太多次,明天再試")
+        return _error(429, "too_many", "登入嘗試太多次，明天再試")
     with pool.connection() as conn:
         with conn.cursor() as cur:
             if not admins.is_admin(cur, claims["email"]):
@@ -203,25 +203,6 @@ def publish(dataset: str):
     return jsonify({"version": version, "cache_reloaded": cache_ok})
 
 
-@bp.get("/export/<dataset>")
-@require_admin
-def export_dataset(dataset: str):
-    """匯出目前發布的版本,給 App 發版時當內建初始檔(和 App 下載的內容完全一樣)。"""
-    if dataset not in datasets.DATASETS:
-        return _error(404, "not_found", "沒有這個資料集")
-    with pool.connection() as conn:
-        with conn.cursor() as cur:
-            latest = datasets.latest(cur, dataset)
-    if latest is None:
-        return _error(404, "not_found", "這個資料集還沒有發布過")
-    body = {k: latest[k] for k in ("name", "version", "format_version", "content")}
-    response = jsonify()
-    response.set_data(json.dumps(body, ensure_ascii=False, indent=1) + "\n")
-    response.headers["Content-Type"] = "application/json; charset=utf-8"
-    response.headers["Content-Disposition"] = f'attachment; filename="{dataset}.json"'
-    return response
-
-
 @bp.post("/cache/reload")
 @require_admin
 def reload_cache():
@@ -298,7 +279,7 @@ def get_feedback(feedback_id):
             except (UnicodeDecodeError, json.JSONDecodeError):
                 item["logs"] = {"text": raw.decode("utf-8", errors="replace")}
         except payload.PayloadError:
-            item["logs"] = {"text": "(記錄檔解不開)"}
+            item["logs"] = {"text": "（記錄檔解不開）"}
     return jsonify(item)
 
 
@@ -362,7 +343,7 @@ def remove_admin(email: str):
     if email is None:
         return _error(400, "invalid", "Email 格式不對")
     if email == config.FIRST_ADMIN_EMAIL:
-        return _error(400, "invalid", "第一位管理員由環境變數設定,不能在這裡移除")
+        return _error(400, "invalid", "第一位管理員由環境變數設定，不能在這裡移除")
     if email == g.admin_email:
         return _error(400, "invalid", "不能移除自己")
 

@@ -40,7 +40,7 @@ def create_app(start_loader: bool = True) -> Flask:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("gunicorn.access").disabled = True
     if not config.DATABASE_URL:
-        logging.getLogger(__name__).warning("沒有設定 DATABASE_URL:公用資料無法載入,/ready 會一直是 503")
+        logging.getLogger(__name__).warning("沒有設定 DATABASE_URL：公用資料無法載入，/ready 會一直是 503")
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
     app.json.ensure_ascii = False
@@ -83,11 +83,11 @@ def create_app(start_loader: bool = True) -> Flask:
 
     @app.errorhandler(DatabaseBusy)
     def _db_busy(_exc):
-        return jsonify({"error": "資料庫忙碌中,請稍後再試", "code": "db_busy"}), 503
+        return jsonify({"error": "資料庫忙碌中，請稍後再試", "code": "db_busy"}), 503
 
     @app.errorhandler(psycopg.OperationalError)
     def _db_unavailable(_exc):
-        return jsonify({"error": "資料庫暫時連不上,請稍後再試", "code": "db_unavailable"}), 503
+        return jsonify({"error": "資料庫暫時連不上，請稍後再試", "code": "db_unavailable"}), 503
 
     @app.errorhandler(HTTPException)
     def _http_error(exc):
@@ -97,7 +97,7 @@ def create_app(start_loader: bool = True) -> Flask:
     @app.errorhandler(Exception)
     def _unexpected(exc):
         # 只記型別與位置(堆疊),不記請求內容。
-        logging.getLogger(__name__).exception("未預期的錯誤:%s", type(exc).__name__)
+        logging.getLogger(__name__).exception("未預期的錯誤：%s", type(exc).__name__)
         return jsonify({"error": "伺服器發生錯誤", "code": "server_error"}), 500
 
     if start_loader:

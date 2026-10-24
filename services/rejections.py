@@ -24,7 +24,7 @@ def note(reason: str) -> None:
         now = time.monotonic()
         if now - _window_start >= 60 and _counts:
             summary = "、".join(f"{k} {v} 次" for k, v in _counts.most_common())
-            log.warning("過去一分鐘拒絕的請求:%s", summary)
+            log.warning("過去一分鐘拒絕的請求：%s", summary)
             _counts = Counter()
             _window_start = now
         elif now - _window_start >= 60:

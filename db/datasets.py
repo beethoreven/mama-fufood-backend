@@ -67,7 +67,7 @@ def build_content(cur, dataset: str) -> dict:
         }
     if dataset == "units":
         return {"units": [{k: u[k] for k in ("id", "name", "sort", "default", "disabled")} for u in _units(cur)]}
-    raise EditError(f"沒有這個資料集:{dataset}")
+    raise EditError(f"沒有這個資料集：{dataset}")
 
 
 def latest(cur, dataset: str) -> dict | None:
@@ -198,10 +198,10 @@ def update_group(cur, group_id: int, data: dict) -> None:
 
 def delete_group(cur, group_id: int) -> None:
     if _require(cur, "food_groups", group_id, "分組")["published"]:
-        raise EditError("發布過的分組不能刪除,只能停用")
+        raise EditError("發布過的分組不能刪除，只能停用")
     cur.execute("SELECT 1 FROM foods WHERE group_id = %s LIMIT 1", (group_id,))
     if cur.fetchone():
-        raise EditError("分組裡還有食材,不能刪除")
+        raise EditError("分組裡還有食材，不能刪除")
     cur.execute("DELETE FROM food_groups WHERE id = %s", (group_id,))
 
 
@@ -234,7 +234,7 @@ def update_food(cur, food_id: int, data: dict) -> None:
 
 def delete_food(cur, food_id: int) -> None:
     if _require(cur, "foods", food_id, "食材")["published"]:
-        raise EditError("發布過的食材不能刪除,只能停用")
+        raise EditError("發布過的食材不能刪除，只能停用")
     cur.execute("DELETE FROM foods WHERE id = %s", (food_id,))
 
 
@@ -257,13 +257,13 @@ def update_unit(cur, unit_id: int, data: dict) -> None:
     if "disabled" in data:
         fields["disabled"] = _bool(data, "disabled", "停用")
         if fields["disabled"] and is_default:
-            raise EditError("預設單位不能停用,請先把別的單位設成預設")
+            raise EditError("預設單位不能停用，請先把別的單位設成預設")
     if "default" in data:
         make_default = _bool(data, "default", "預設")
         if make_default and (fields.get("disabled", disabled)):
             raise EditError("停用的單位不能設成預設")
         if not make_default and is_default:
-            raise EditError("一定要有一個預設單位,請改把別的單位設成預設")
+            raise EditError("一定要有一個預設單位，請改把別的單位設成預設")
         if make_default and not is_default:
             # 預設整張表只能有一個:設了新的,舊的自動取消。
             cur.execute("UPDATE units SET is_default = false, updated_at = now() WHERE is_default")
@@ -273,7 +273,7 @@ def update_unit(cur, unit_id: int, data: dict) -> None:
 
 def delete_unit(cur, unit_id: int) -> None:
     if _require(cur, "units", unit_id, "單位")["published"]:
-        raise EditError("發布過的單位不能刪除,只能停用")
+        raise EditError("發布過的單位不能刪除，只能停用")
     cur.execute("SELECT is_default FROM units WHERE id = %s", (unit_id,))
     if cur.fetchone()[0]:
         raise EditError("預設單位不能刪除")
@@ -292,7 +292,7 @@ def _update(cur, table: str, item_id: int, fields: dict) -> None:
 def publish(cur, dataset: str, by: str) -> str:
     """發布草稿,回傳新的版本號。內容和上一版完全一樣時不發布。"""
     if dataset not in DATASETS:
-        raise EditError(f"沒有這個資料集:{dataset}")
+        raise EditError(f"沒有這個資料集：{dataset}")
     cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"mama-fufood:publish:{dataset}",))
     content = build_content(cur, dataset)
     errors = validate_content(dataset, content)
@@ -300,7 +300,7 @@ def publish(cur, dataset: str, by: str) -> str:
         raise EditError(";".join(errors))
     current = latest(cur, dataset)
     if current is not None and current["content"] == content:
-        raise EditError("草稿和目前發布的版本一樣,沒有要發布的修改")
+        raise EditError("草稿和目前發布的版本一樣，沒有要發布的修改")
     version = timeutil.next_stamp(current["version"] if current else None)
     cur.execute(
         "INSERT INTO dataset_releases (dataset, version, format_version, content, published_by)"

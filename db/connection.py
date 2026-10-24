@@ -54,7 +54,7 @@ class _Connections:
         if not config.DATABASE_URL:
             raise DatabaseNotConfigured("DATABASE_URL 未設定")
         if not _slots.acquire(timeout=_SLOT_WAIT):
-            raise DatabaseBusy(f"資料庫同時連線已達上限({_MAX_CONCURRENT})")
+            raise DatabaseBusy(f"資料庫同時連線已達上限（{_MAX_CONCURRENT}）")
         try:
             # prepare_threshold=None:不用伺服器端的預備語句(Neon 的 -pooler 是交易層級的池子)。
             conn = psycopg.connect(config.DATABASE_URL, connect_timeout=_CONNECT_TIMEOUT,

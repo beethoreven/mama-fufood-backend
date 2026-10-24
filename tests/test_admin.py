@@ -116,12 +116,6 @@ def test_units_always_have_exactly_one_enabled_default(client, admin_token):
     assert client.post("/api/admin/publish/units", headers=h).status_code == 200
 
 
-def test_export_matches_what_the_app_downloads(client, admin_token):
-    resp = client.get("/api/admin/export/food_list", headers=admin_headers(admin_token))
-    assert resp.status_code == 200
-    assert resp.get_json() == load_seed("food_list")
-
-
 def test_cache_status_and_reload(client, admin_token):
     h = admin_headers(admin_token)
     assert client.post("/api/admin/cache/reload", headers=h).get_json()["loaded"] is True

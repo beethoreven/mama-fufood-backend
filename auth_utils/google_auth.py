@@ -88,7 +88,7 @@ def verify(token: str | None) -> dict | None:
     except Exception as exc:  # noqa: BLE001
         # 刻意不只攔 ValueError:取金鑰那段是真的網路請求,連不上時丟的是別的型別。
         # ★ 只記例外的型別與訊息,不記 token 本身(SPEC 第 3 節第 4 項:token 不印進日誌)。
-        log.warning("Google ID Token 驗證失敗:%s", type(exc).__name__)
+        log.warning("Google ID Token 驗證失敗：%s", type(exc).__name__)
         return None
     if not payload.get("email_verified"):
         return None

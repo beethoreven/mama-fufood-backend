@@ -52,7 +52,7 @@ def _reload_locked() -> dict:
     _last_attempt = time.monotonic()
     fresh = _read_from_db()
     _snapshot = fresh
-    log.info("公用資料快取已載入:%s",
+    log.info("公用資料快取已載入：%s",
              ", ".join(f"{k}={v['version']}" for k, v in fresh["datasets"].items()))
     return fresh
 
@@ -76,7 +76,7 @@ def ensure_loaded() -> dict | None:
     try:
         return _reload_locked()
     except Exception as exc:  # noqa: BLE001 - 任何失敗都只代表「現在還沒有快取」
-        log.warning("公用資料快取載入失敗:%s", type(exc).__name__)
+        log.warning("公用資料快取載入失敗：%s", type(exc).__name__)
         return None
     finally:
         _load_lock.release()
@@ -88,7 +88,7 @@ def _retry_until_loaded() -> None:
             reload()
             return
         except Exception as exc:  # noqa: BLE001
-            log.warning("公用資料快取載入失敗,%s 秒後重試:%s", config.CACHE_RETRY_SECONDS, type(exc).__name__)
+            log.warning("公用資料快取載入失敗，%s 秒後重試：%s", config.CACHE_RETRY_SECONDS, type(exc).__name__)
         time.sleep(config.CACHE_RETRY_SECONDS)
 
 
