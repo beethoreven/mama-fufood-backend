@@ -49,7 +49,7 @@ def _connect():
     scheme, sep, rest = url.partition("://")
     creds, at, location = rest.rpartition("@")
     if not sep or not at or not scheme.startswith("postgres"):
-        sys.exit("連線字串的格式要是 postgresql://帳號:密碼@主機/資料庫?參數")
+        sys.exit("連線字串的格式要是 postgresql://<帳號>:<密碼>@<主機>/<資料庫>?<參數>")
     user, _, password = creds.partition(":")
     hostport, _, tail = location.partition("/")
     dbname, _, query = tail.partition("?")
