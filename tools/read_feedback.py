@@ -42,6 +42,23 @@ def _url() -> str:
     return url
 
 
+def _connect():
+    """密碼裡有 @、: 這類符號時,網址會被讀錯(第一個 @ 被當成密碼結束)。
+    所以自己拆:帳號到第一個冒號為止,主機從最後一個 @ 開始,中間都是密碼。"""
+    url = _url()
+    scheme, sep, rest = url.partition("://")
+    creds, at, location = rest.rpartition("@")
+    if not sep or not at or not scheme.startswith("postgres"):
+        sys.exit("連線字串的格式要是 postgresql://帳號:密碼@主機/資料庫?參數")
+    user, _, password = creds.partition(":")
+    hostport, _, tail = location.partition("/")
+    dbname, _, query = tail.partition("?")
+    params = dict(p.split("=", 1) for p in query.split("&") if "=" in p)
+    host, _, port = hostport.partition(":")
+    return psycopg.connect(host=host, port=port or None, dbname=dbname, user=user, password=password,
+                           connect_timeout=20, **params)
+
+
 def _logs(attachment: bytes | None):
     if attachment is None:
         return None
@@ -59,7 +76,7 @@ def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     prefix = sys.argv[1] if len(sys.argv) > 1 else None
     try:
-        conn = psycopg.connect(_url(), connect_timeout=20)
+        conn = _connect()
     except psycopg.Error as exc:
         sys.exit(f"連不上資料庫:{type(exc).__name__}")
     with conn:
