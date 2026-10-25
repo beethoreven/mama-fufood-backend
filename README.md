@@ -155,6 +155,7 @@ export_formats/          各版匯出格式的欄位定義、轉換與樣本檔
 seed/                    第一版公用資料(和 App 內建的是同一份)
 tests/                   pytest
 tools/local_db.sh        本機開一個 Postgres 18(開發與測試用)
+tools/read_feedback.py   用唯讀帳號讀正式環境的意見回饋(Part E)
 textutil.py、timeutil.py 字數計算(一個 emoji 算一個字)、台北時間
 ```
 
@@ -288,6 +289,45 @@ TEST_DATABASE_URL=postgresql://postgres@localhost:5433/mff_test .venv/bin/python
 ```bash
 python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
+
+## Part E. 在本機讀正式環境的意見回饋(唯讀)
+
+除錯時想直接看意見回饋與記錄檔,不想開後台,可以用 `tools/read_feedback.py`。它用**只能讀 feedback 表**的帳號連正式資料庫,連線本身也設成唯讀;不要用 Render 上那組 `DATABASE_URL`(那組可以改、可以刪)。
+
+**E1. 建立唯讀帳號(只做一次)。** Neon 控制台 → 專案 → 左側 **SQL Editor**,資料庫選 `neondb`,執行下面這段(密碼換成自己產生的一串,例如 `python3 -c "import secrets; print(secrets.token_urlsafe(24))"`):
+
+```sql
+CREATE ROLE mff_readonly WITH LOGIN PASSWORD '換成你的密碼';
+GRANT CONNECT ON DATABASE neondb TO mff_readonly;
+GRANT USAGE ON SCHEMA public TO mff_readonly;
+GRANT SELECT ON feedback TO mff_readonly;
+```
+
+★ 一定要用 SQL 建,不要在 Neon 控制台的 **Roles** 頁面建:那裡建的帳號會自動加入 `neon_superuser`,權限很大([Neon 說明](https://neon.com/docs/manage/roles))。
+
+**E2. 存連線字串(在 repo 外面,不會進 git)。** 把 Render 上 `DATABASE_URL` 的帳號密碼換成上面那組,其他(主機、資料庫名稱、`?sslmode=require`)不變,存成 `~/.config/mama-fufood/readonly.env`:
+
+```bash
+mkdir -p ~/.config/mama-fufood
+nano ~/.config/mama-fufood/readonly.env
+chmod 600 ~/.config/mama-fufood/readonly.env
+```
+
+檔案內容只有一行:`MFF_READONLY_DATABASE_URL=postgresql://mff_readonly:<密碼>@<主機>/neondb?sslmode=require`
+
+**E3. 讀。**
+
+```bash
+.venv/bin/python tools/read_feedback.py
+```
+
+列出最近 10 則(編號前 8 碼、時間、類型、狀態、版本、機型、描述開頭)。看某一則的完整內容與記錄檔:
+
+```bash
+.venv/bin/python tools/read_feedback.py 編號前幾碼
+```
+
+程式不會印出連線字串;連不上時只印錯誤類型。要停用這個帳號:在 SQL Editor 執行 `DROP ROLE mff_readonly;`。
 
 ---
 
@@ -446,6 +486,7 @@ export_formats/          export format field definitions, conversions and sample
 seed/                    the first public data (identical to the copy built into the app)
 tests/                   pytest
 tools/local_db.sh        starts a local Postgres 18 (for development and tests)
+tools/read_feedback.py   reads production feedback with a read-only account (Part E)
 textutil.py, timeutil.py character counting (an emoji counts as one character), Taipei time
 ```
 
@@ -579,3 +620,42 @@ Generating `SESSION_SECRET`:
 ```bash
 python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
+
+## Part E. Read Production Feedback Locally (Read-Only)
+
+When debugging, to look at feedback and its logs without opening the admin console, use `tools/read_feedback.py`. It connects to the production database with an account that **can only read the feedback table**, and the connection itself is also set to read-only; don't use the `DATABASE_URL` from Render (that one can modify and delete).
+
+**E1. Create the read-only account (once).** Neon console → project → **SQL Editor** on the left, database `neondb`, run the following (replace the password with one you generate, e.g. `python3 -c "import secrets; print(secrets.token_urlsafe(24))"`):
+
+```sql
+CREATE ROLE mff_readonly WITH LOGIN PASSWORD 'your password here';
+GRANT CONNECT ON DATABASE neondb TO mff_readonly;
+GRANT USAGE ON SCHEMA public TO mff_readonly;
+GRANT SELECT ON feedback TO mff_readonly;
+```
+
+★ Create it with SQL, not on the Neon console's **Roles** page: accounts created there are automatically members of `neon_superuser` and have broad privileges ([Neon docs](https://neon.com/docs/manage/roles)).
+
+**E2. Store the connection string (outside the repo, never in git).** Take Render's `DATABASE_URL`, replace the user and password with the account above, keep everything else (host, database name, `?sslmode=require`), and save it as `~/.config/mama-fufood/readonly.env`:
+
+```bash
+mkdir -p ~/.config/mama-fufood
+nano ~/.config/mama-fufood/readonly.env
+chmod 600 ~/.config/mama-fufood/readonly.env
+```
+
+The file has a single line: `MFF_READONLY_DATABASE_URL=postgresql://mff_readonly:<password>@<host>/neondb?sslmode=require`
+
+**E3. Read.**
+
+```bash
+.venv/bin/python tools/read_feedback.py
+```
+
+lists the latest 10 (first 8 characters of the ID, time, kind, status, version, device model, start of the description). For one item's full content and logs:
+
+```bash
+.venv/bin/python tools/read_feedback.py first-few-characters-of-the-ID
+```
+
+The tool never prints the connection string; on a connection failure it only prints the error type. To disable the account, run `DROP ROLE mff_readonly;` in the SQL Editor.
