@@ -94,7 +94,11 @@ Google 的 ID token 大約一小時就過期,不能拿來當長期憑證(否則�
 - 簽章對不上的 token 直接拒絕,連資料庫都不碰;ID token 也會先檢查長度與形狀(最長 8192 字、三段式),亂打的請求不會讓後端去向 Google 要公開金鑰。
 - 撤銷不靠 session:每次請求都會確認「這個 Email 現在還是不是管理員」(快取 30 秒),所以拿掉權限最慢 30 秒生效。
 
-App 那邊則相反:每次打後端都帶一張**新的** ID token(快過期就先換),因為 App 不需要登入狀態,只需要證明「是一個真的 Google 帳號」來計算每人每天的次數。
+App 也一樣只在登入那一刻用 ID token:使用者在 App 裡按登入時,`POST /api/v1/session` 驗證一次 Google ID token,發一張「通行證」給手機(`auth_utils/app_tokens.py`),之後每日檢查、意見回饋、格式轉換都帶通行證。和後台不同的是**伺服器什麼都不存**:通行證本身帶著帳號編號、Email、發出與到期時間,用 HMAC 簽章防偽造(金鑰也從 `SESSION_SECRET` 衍生,但用途字串不同,兩邊的 token 不能互用),有效 180 天;每日檢查時,發出超過 30 天就在回應裡附一張新的,有在用就不會過期。
+
+原本的做法是 App 每次都帶一張**新的** ID token,快過期時請 Android「不跳畫面自動登入」換一張。實際使用時,系統常常不肯自動登入,Google 的登入外掛就自己改跳選帳號畫面,按掉就變成沒登入:重開 App 就像登入不見了。改成通行證之後,開 App 完全不需要系統自動登入。舊版 App 送來的 ID token 目前仍然接受(見 `routes/public.py` 的 `_identify`),那批安裝都更新後就拿掉。
+
+撤銷:通行證沒有個別撤銷的機制(沒有資料庫);要讓全部失效就換 `SESSION_SECRET`(後台的 session 也會一起失效)。
 
 ### 防止被灌爆
 
@@ -135,6 +139,7 @@ config.py               所有環境變數的唯一讀取點(先載入 .env 再�
 auth_utils/
   ├── google_auth.py     Google ID token 驗證(含形狀檢查、公開金鑰快取)
   ├── sessions.py        管理後台的 session token(HMAC 簽章、滑動式有效期)
+  ├── app_tokens.py      App 的通行證(無狀態、HMAC 簽章、180 天,使用中自動延長)
   └── access.py          管理員權限的檢查(每次確認還是不是管理員,快取 30 秒)
 db/
   ├── connection.py      每個請求一條連線、同時最多 5 條、查詢逾時
@@ -232,7 +237,7 @@ cp .env.example .env
 - `http://localhost:5003/health` → `{"ok": true, "commit": ""}`(本機沒有 commit 資訊,是空的)
 - `http://localhost:5003/ready` → `"ok": true`,`"cache"` 裡有食材清單與單位的版本(`20261023000000`)。剛啟動的頭一兩秒可能是 503(快取還在載入),重新整理即可。
 
-要測需要登入的 API(`/api/v1/check` 等),要用真的 App 或管理後台網頁登入,因為它們需要 Google 的 ID token,瀏覽器網址列帶不了。
+要測需要登入的 API(`/api/v1/check` 等),要用真的 App 登入(它們要 App 的通行證,通行證要用 Google 的 ID token 換),瀏覽器網址列帶不了。
 
 按 `Control + C` 停止。
 
@@ -244,7 +249,7 @@ cp .env.example .env
 TEST_DATABASE_URL=postgresql://postgres@localhost:5433/mff_test .venv/bin/python -m pytest
 ```
 
-目前 86 項。沒有設定 `TEST_DATABASE_URL` 時,需要資料庫的測試會跳過,其餘照跑。**測試會清空 `TEST_DATABASE_URL` 指向的資料庫,絕對不要指向正式的 Neon。**
+目前 91 項。沒有設定 `TEST_DATABASE_URL` 時,需要資料庫的測試會跳過,其餘照跑。**測試會清空 `TEST_DATABASE_URL` 指向的資料庫,絕對不要指向正式的 Neon。**
 
 ---
 
@@ -425,7 +430,11 @@ Google ID tokens expire after roughly an hour, so they can't be used as a long-l
 - Tokens with a bad signature are rejected without touching the database; ID tokens are also checked for length and shape first (at most 8192 characters, three segments), so junk requests don't make the backend fetch Google's public keys.
 - Revocation doesn't rely on the session: every request re-checks "is this email still an admin right now" (cached for 30 seconds), so removing someone takes effect within 30 seconds.
 
-The app does the opposite: every call to the backend carries a **fresh** ID token (refreshed before it expires), because the app needs no login state — only proof that it is a real Google account, so the per-person daily counts can be applied.
+The app likewise uses the ID token only at the moment of signing in: when the user signs in in the app, `POST /api/v1/session` verifies the Google ID token once and issues a "pass" to the phone (`auth_utils/app_tokens.py`); the daily check, feedback and format conversion then carry the pass. Unlike the admin console, **the server stores nothing**: the pass itself carries the account ID, email, issue and expiry times, protected by an HMAC signature (the key is also derived from `SESSION_SECRET`, with a different purpose string, so the two kinds of token can't be swapped). It is valid for 180 days; when the daily check sees a pass older than 30 days it returns a new one, so it never expires while the app is in use.
+
+The previous approach had the app send a **fresh** ID token every time, asking Android to "sign in silently" for a new one when it was about to expire. In real use the system often refused, the Google sign-in plugin then showed an account picker on its own, and dismissing it left the user signed out — reopening the app looked like the sign-in had been lost. With the pass, opening the app needs no silent sign-in at all. ID tokens from older app builds are still accepted for now (see `_identify` in `routes/public.py`); remove that once those installs have updated.
+
+Revocation: passes can't be revoked individually (there is no database); to invalidate all of them, change `SESSION_SECRET` (admin sessions are invalidated too).
 
 ### Protection Against Abuse
 
@@ -466,6 +475,7 @@ config.py               the single place environment variables are read (loads .
 auth_utils/
   ├── google_auth.py     Google ID token verification (shape checks, public-key caching)
   ├── sessions.py        admin-console session tokens (HMAC signature, sliding expiry)
+  ├── app_tokens.py      the app's pass (stateless, HMAC signature, 180 days, extended while in use)
   └── access.py          admin permission checks (re-checks admin status on every request, cached 30 s)
 db/
   ├── connection.py      one connection per request, at most 5 at once, statement timeout
@@ -563,7 +573,7 @@ Open in your browser:
 - `http://localhost:5003/health` → `{"ok": true, "commit": ""}` (there's no commit information locally, so it's empty)
 - `http://localhost:5003/ready` → `"ok": true`, with the food list and unit versions (`20261023000000`) under `"cache"`. In the first second or two after starting it may return 503 (the cache is still loading); just refresh.
 
-APIs that need a login (`/api/v1/check` etc.) need a Google ID token, which a browser address bar can't send, so test them through the real app or the admin console website.
+APIs that need a login (`/api/v1/check` etc.) need the app's pass (which is exchanged for a Google ID token), which a browser address bar can't send, so test them by signing in through the real app.
 
 Press `Control + C` to stop.
 
@@ -575,7 +585,7 @@ Press `Control + C` to stop.
 TEST_DATABASE_URL=postgresql://postgres@localhost:5433/mff_test .venv/bin/python -m pytest
 ```
 
-86 tests at the moment. Without `TEST_DATABASE_URL`, the tests that need a database are skipped and the rest still run. **The tests wipe the database `TEST_DATABASE_URL` points at — never point it at the production Neon database.**
+91 tests at the moment. Without `TEST_DATABASE_URL`, the tests that need a database are skipped and the rest still run. **The tests wipe the database `TEST_DATABASE_URL` points at — never point it at the production Neon database.**
 
 ---
 

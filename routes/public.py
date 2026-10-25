@@ -20,7 +20,7 @@ from psycopg.types.json import Jsonb
 import config
 import export_formats
 import timeutil
-from auth_utils import google_auth
+from auth_utils import app_tokens, google_auth
 from db import feedback as feedback_db
 from db.connection import pool
 from services import payload, public_cache, rejections
@@ -63,11 +63,35 @@ def _error(status: int, code: str, message: str, **extra):
 
 
 def _identify():
-    claims = google_auth.verify(google_auth.extract_bearer_token(request))
+    """App 的請求帶通行證(auth_utils/app_tokens.py)。
+
+    也還接受 Google ID Token:通行證之前發出去的 App(1.0.0 的第一批安裝)只會送 ID Token。
+    那些安裝都更新到會換通行證的版本之後,這一支就可以拿掉(只剩 /api/v1/session 收 ID Token)。
+    """
+    token = google_auth.extract_bearer_token(request)
+    claims = app_tokens.verify(token) if app_tokens.is_app_token(token) else google_auth.verify(token)
     if claims is None:
         rejections.note("無效憑證")
         return None, _error(401, "invalid_token", "登入憑證無效或已過期")
     return claims, None
+
+
+# ── 登入:Google ID Token 換 App 的通行證 ──────────────────────
+
+@bp.post("/api/v1/session")
+def session():
+    """使用者在 App 裡登入時呼叫一次。驗證 Google ID Token,發一張通行證給手機。
+
+    伺服器不保存任何東西:通行證本身帶著帳號編號、Email 與到期時間,用簽章防偽造。
+    """
+    if not app_tokens.enabled():
+        return _error(503, "not_configured", "後端還沒設定 SESSION_SECRET")
+    claims = google_auth.verify(google_auth.extract_bearer_token(request))
+    if claims is None:
+        rejections.note("無效憑證")
+        return _error(401, "invalid_token", "登入憑證無效或已過期")
+    token, exp = app_tokens.issue(claims["sub"], claims["email"])
+    return jsonify({"token": token, "expires_at": exp})
 
 
 # ── 每日檢查 ──────────────────────────────────────────────────
@@ -109,7 +133,7 @@ def check():
         return err
     app_version = parse_version(body.get("app_version")) if isinstance(body, dict) else None
     wanted = _parse_datasets(body.get("datasets")) if isinstance(body, dict) else None
-    # 平台(目前只有 android)。第一版就送,以後加了 iOS 才能各自設強制更新門檻,
+    # 平台(android、ios)。第一版就送,iOS 版才能各自設強制更新門檻,
     # 不會出現已發出去的舊版送錯值、伺服器只好長期相容的情況。
     # 目前只檢查格式,還沒有用在判斷上。
     platform = body.get("platform", "android") if isinstance(body, dict) else None
@@ -153,6 +177,9 @@ def check():
         result["datasets"][name] = entry
     if needs_app_update:
         result["notice"] = cfg["dataset_notice"]
+    if claims.get("renew"):
+        # 通行證發出超過一段時間:順便換一張新的,有在用的人就不會遇到過期。
+        result["session_token"], result["session_expires_at"] = app_tokens.issue(claims["sub"], claims["email"])
     return jsonify(result)
 
 
