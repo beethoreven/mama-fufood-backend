@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS dataset_releases (
 );
 CREATE TABLE IF NOT EXISTS app_config (
     id               BOOLEAN PRIMARY KEY DEFAULT true CHECK (id),
-    min_app_version  TEXT NOT NULL DEFAULT '1.0.0',
+    min_app_version  TEXT NOT NULL DEFAULT '0.1.0',
     force_reason     TEXT NOT NULL DEFAULT '',
     update_url       TEXT NOT NULL DEFAULT '',
     dataset_notice   TEXT NOT NULL DEFAULT 'App 有重大更新,更新後才能抓新的清單。',
@@ -172,7 +172,10 @@ def _seed(cur, dataset: str) -> None:
 
 
 def _sync_formats(cur) -> None:
-    """匯出格式的欄位定義跟著程式發布(SPEC 第 3 節第 6 項):部署時自動寫入,後台只能看。"""
+    """匯出格式的欄位定義跟著程式發布(SPEC 第 3 節第 6 項):部署時自動寫入,後台只能看。
+
+    程式裡已經沒有的格式版本(例如上架前把第 1 版改稱第 0 版)從表裡刪掉:這張表只是程式的副本。"""
+    cur.execute("DELETE FROM formats WHERE NOT (format_version = ANY(%s))", (list(export_formats.DEFINITIONS),))
     for version, definition in export_formats.DEFINITIONS.items():
         cur.execute(
             """

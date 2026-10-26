@@ -1,7 +1,7 @@
 """匯出格式:欄位定義、檢查與逐版轉換(SPEC 第 3 節第 6 項、第 4 節「匯入」)。
 
 - 每個格式版本一份欄位定義(`v{N}.json`),跟著後端程式發布,部署時寫入 formats 表。
-- 格式版本 = App 的主版本號 x(SPEC 第 2 節)。目前是第 1 版。
+- 格式版本 = App 的主版本號 x(SPEC 第 2 節)。目前是第 0 版(上架前的格式,App 0.x)。
 - 舊格式轉新格式採**逐版轉換**(1→2→3):每次改格式只新增一支
   「上一版轉這一版」的函式,登記在 CONVERTERS。
 - 每個格式版本保留一份樣本檔(`samples/v{N}.json`),測試會把所有舊樣本一路轉到
@@ -32,7 +32,7 @@ DEFINITIONS: dict[int, dict] = {
 CURRENT = max(DEFINITIONS)
 
 # from_version → 把 from_version 的 data.json 轉成 from_version + 1 的函式。
-# 函式回傳 (轉換後的資料, 缺資料的必填欄位清單)。第 1 版之前沒有格式,目前是空的。
+# 函式回傳 (轉換後的資料, 缺資料的必填欄位清單)。第 0 版是第一個格式,目前是空的。
 CONVERTERS: dict[int, Callable[[dict], tuple[dict, list[dict]]]] = {}
 
 _UUID4 = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")

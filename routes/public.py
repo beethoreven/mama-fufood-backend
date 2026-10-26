@@ -65,7 +65,7 @@ def _error(status: int, code: str, message: str, **extra):
 def _identify():
     """App 的請求帶通行證(auth_utils/app_tokens.py)。
 
-    也還接受 Google ID Token:通行證之前發出去的 App(1.0.0 的第一批安裝)只會送 ID Token。
+    也還接受 Google ID Token:通行證之前發出去的 App(改成 0.1.0 之前、當時標成 1.0.0 的那批安裝)只會送 ID Token。
     那些安裝都更新到會換通行證的版本之後,這一支就可以拿掉(只剩 /api/v1/session 收 ID Token)。
     """
     token = google_auth.extract_bearer_token(request)

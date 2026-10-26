@@ -137,8 +137,8 @@ def test_admin_whitelist(client, admin_token):
 
 def test_formats_are_written_from_code(client, admin_token):
     rows = client.get("/api/admin/formats", headers=admin_headers(admin_token)).get_json()["formats"]
-    assert rows[0]["format_version"] == 1 and rows[0]["status"] == "current"
-    assert rows[0]["min_app_version"] == "1.0.0"
+    assert [r["format_version"] for r in rows] == [0], "只有程式裡定義的格式;改編號後舊的那筆要清掉"
+    assert rows[0]["status"] == "current" and rows[0]["min_app_version"] == "0.1.0"
 
 
 def test_logout(client, admin_token):

@@ -10,6 +10,8 @@ import pytest
 import export_formats
 from tests.conftest import load_sample
 
+CUR = export_formats.CURRENT
+
 SAMPLES = sorted((Path(export_formats.__file__).parent / "samples").glob("v*.json"))
 
 
@@ -61,32 +63,32 @@ def test_every_sample_converts_to_latest_and_passes(path):
     (lambda d: d["settings"].update(week_start="saturday"), "只能是"),
     (lambda d: d.update(babies=[]), "至少要有 1 個"),
     (lambda d: d["babies"][0]["records"].append(copy.deepcopy(_record(d))), "在檔案裡重複出現"),
-    (lambda d: d.update(format_version=2), "必須是 1"),
+    (lambda d: d.update(format_version=CUR + 1), f"必須是 {CUR}"),
 ])
 def test_invalid_files_are_rejected(mutate, message):
-    sample = load_sample(1)
+    sample = load_sample(CUR)
     mutate(sample)
-    errors = export_formats.validate(sample, 1)
+    errors = export_formats.validate(sample, CUR)
     assert any(message in e for e in errors), errors
 
 
 def test_names_count_what_the_user_sees():
     """一個 emoji(包含組合起來的家庭 emoji)算一個字。"""
-    sample = load_sample(1)
+    sample = load_sample(CUR)
     sample["babies"][0]["name"] = "👨‍👩‍👧" * 20
-    assert export_formats.validate(sample, 1) == []
+    assert export_formats.validate(sample, CUR) == []
     sample["babies"][0]["name"] = "👨‍👩‍👧" * 21
-    assert any("最多 20 個字" in e for e in export_formats.validate(sample, 1))
+    assert any("最多 20 個字" in e for e in export_formats.validate(sample, CUR))
 
 
 def test_nullable_choices_and_empty_records_are_fine():
-    sample = load_sample(1)
+    sample = load_sample(CUR)
     _record(sample).update(allergy=None, reaction=None)
-    assert export_formats.validate(sample, 1) == []
+    assert export_formats.validate(sample, CUR) == []
 
 
 def test_convert_runs_every_step_in_order(monkeypatch):
-    """逐版轉換:1→2→3,每一步都要有轉換程式。"""
+    """逐版轉換:一版一版往上轉(例如 1→2→3),每一步都要有轉換程式。"""
     calls = []
 
     def one_to_two(data):
@@ -97,16 +99,16 @@ def test_convert_runs_every_step_in_order(monkeypatch):
         calls.append(2)
         return data, [{"path": "settings.consent", "field": "consent"}]
 
-    monkeypatch.setattr(export_formats, "CURRENT", 3)
-    monkeypatch.setitem(export_formats.CONVERTERS, 1, one_to_two)
-    monkeypatch.setitem(export_formats.CONVERTERS, 2, two_to_three)
-    data, missing = export_formats.convert(load_sample(1))
+    monkeypatch.setattr(export_formats, "CURRENT", CUR + 2)
+    monkeypatch.setitem(export_formats.CONVERTERS, CUR, one_to_two)
+    monkeypatch.setitem(export_formats.CONVERTERS, CUR + 1, two_to_three)
+    data, missing = export_formats.convert(load_sample(CUR))
     assert calls == [1, 2]
-    assert data["format_version"] == 3
+    assert data["format_version"] == CUR + 2
     assert missing == [{"path": "settings.consent", "field": "consent"}]
 
 
 def test_convert_without_a_converter_fails_loudly(monkeypatch):
-    monkeypatch.setattr(export_formats, "CURRENT", 2)
-    with pytest.raises(ValueError, match="缺少第 1 版轉第 2 版"):
-        export_formats.convert(load_sample(1))
+    monkeypatch.setattr(export_formats, "CURRENT", CUR + 1)
+    with pytest.raises(ValueError, match=f"缺少第 {CUR} 版轉第 {CUR + 1} 版"):
+        export_formats.convert(load_sample(CUR))
