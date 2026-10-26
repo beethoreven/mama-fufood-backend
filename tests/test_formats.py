@@ -112,3 +112,22 @@ def test_convert_without_a_converter_fails_loudly(monkeypatch):
     monkeypatch.setattr(export_formats, "CURRENT", CUR + 1)
     with pytest.raises(ValueError, match=f"缺少第 {CUR} 版轉第 {CUR + 1} 版"):
         export_formats.convert(load_sample(CUR))
+
+
+def test_v0_to_v1_adds_an_empty_digestive_field():
+    """第 0 版(上架前)沒有「腹瀉或嘔吐」:轉成第 1 版時每筆紀錄補上 null(沒填),其他欄位不變。"""
+    old = load_sample(0)
+    new, missing = export_formats.convert(copy.deepcopy(old))
+    assert missing == [] and new["format_version"] == 1
+    for old_baby, new_baby in zip(old["babies"], new["babies"]):
+        for before, after in zip(old_baby["records"], new_baby["records"]):
+            assert after["digestive"] is None
+            assert {k: v for k, v in after.items() if k != "digestive"} == before
+            assert list(after).index("digestive") == list(after).index("reaction") + 1
+    assert export_formats.validate(new, 1) == []
+    # 第 1 版一定要有這個欄位(值可以是 null),也只能是固定的幾個值。
+    del new["babies"][0]["records"][0]["digestive"]
+    assert any("缺少這個欄位" in e for e in export_formats.validate(new, 1))
+    _record(new).update(digestive="fever")
+    assert any("只能是" in e for e in export_formats.validate(new, 1))
+

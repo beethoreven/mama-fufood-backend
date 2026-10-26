@@ -122,6 +122,7 @@ App 的匯出檔(`.mff`)整份加密,後端看不到內容;但格式的「欄位
 - `export_formats/v{N}.json`:第 N 版的欄位定義,啟動時寫進 `formats` 表,後台可以看。
 - `export_formats/__init__.py`:通用的檢查器,加上逐版轉換(`CONVERTERS[N]` = 第 N 版轉第 N+1 版)。
 - `export_formats/samples/v{N}.json`:每一版保留一份樣本檔;測試會把所有舊樣本一路轉到最新版,並通過最新版的檢查。App 的測試也用同一份樣本,確認兩邊對格式的理解一致。
+- 目前有兩版:第 0 版(上架前的 App 0.x)與第 1 版(App 1.x,每筆紀錄多了 `digestive`「腹瀉或嘔吐」)。第 0 版轉第 1 版時,`digestive` 一律補 `null`(沒填),因為舊紀錄本來就沒有這項資料,不能猜。
 
 ### 踩過的坑
 
@@ -249,7 +250,7 @@ cp .env.example .env
 TEST_DATABASE_URL=postgresql://postgres@localhost:5433/mff_test .venv/bin/python -m pytest
 ```
 
-目前 91 項。沒有設定 `TEST_DATABASE_URL` 時,需要資料庫的測試會跳過,其餘照跑。**測試會清空 `TEST_DATABASE_URL` 指向的資料庫,絕對不要指向正式的 Neon。**
+目前 93 項。沒有設定 `TEST_DATABASE_URL` 時,需要資料庫的測試會跳過,其餘照跑。**測試會清空 `TEST_DATABASE_URL` 指向的資料庫,絕對不要指向正式的 Neon。**
 
 ---
 
@@ -458,6 +459,7 @@ The app's export files (`.mff`) are fully encrypted, so the backend can't see th
 - `export_formats/v{N}.json`: the field definitions of version N, written into the `formats` table at startup and viewable in the admin console.
 - `export_formats/__init__.py`: a generic validator plus step-by-step conversion (`CONVERTERS[N]` converts version N to N+1).
 - `export_formats/samples/v{N}.json`: one sample file kept for every version; the tests convert every old sample all the way to the latest version and check it passes the latest validation. The app's tests use the same sample, confirming both sides understand the format the same way.
+- There are two versions today: 0 (the pre-release app 0.x) and 1 (app 1.x, where every record gained `digestive`, "diarrhea or vomiting"). Converting 0 to 1 always fills `digestive` with `null` (not filled), because old records never had this data and it must not be guessed.
 
 ### Pitfalls Hit Along the Way
 
@@ -585,7 +587,7 @@ Press `Control + C` to stop.
 TEST_DATABASE_URL=postgresql://postgres@localhost:5433/mff_test .venv/bin/python -m pytest
 ```
 
-91 tests at the moment. Without `TEST_DATABASE_URL`, the tests that need a database are skipped and the rest still run. **The tests wipe the database `TEST_DATABASE_URL` points at — never point it at the production Neon database.**
+93 tests at the moment. Without `TEST_DATABASE_URL`, the tests that need a database are skipped and the rest still run. **The tests wipe the database `TEST_DATABASE_URL` points at — never point it at the production Neon database.**
 
 ---
 
